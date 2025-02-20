@@ -1059,6 +1059,10 @@ elseif(USE_CUDA)
         torch_cpu
         torch_cuda
     )
+    if(USE_MKL AND MKL_FOUND)
+      message("!!!!!!!!!!!!!!!!!! USE_MKL: ${USE_MKL}")
+      target_link_libraries(torch_cuda_linalg PRIVATE ${MKL_LIBRARIES})
+    endif()
     if($ENV{ATEN_STATIC_CUDA})
       if(CUDA_VERSION_MAJOR LESS_EQUAL 11)
         target_link_libraries(torch_cuda_linalg PRIVATE
