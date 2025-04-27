@@ -1212,8 +1212,6 @@ def _get_mkldnn_deterministic() -> _bool: ...  # THPModule_deterministicMkldnn
 def _set_mkldnn_deterministic(arg: _bool) -> None: ...  # THPModule_setDeterministicMkldnn
 def _get_onednn_allow_tf32() -> _bool: ... # THPModule_allowTF32OneDNN
 def _set_onednn_allow_tf32(arg: _bool) -> None: ... # THPModule_setAllowTF32OneDNN
-def _get_onednn_enabled_primitive_cache() -> _bool: ... # THPModule_enabledOneDNNPrimitiveCache
-def _set_onednn_enabled_primitive_cache(arg: _bool) -> None: ... # THPModule_setEnabledOneDNNPrimitiveCache
 def _get_deterministic_algorithms() -> _bool: ...  # THPModule_deterministicAlgorithms
 def _get_deterministic_algorithms_warn_only() -> _bool: ...  # THPModule_deterministicAlgorithmsWarnOnly
 def _set_deterministic_algorithms(
