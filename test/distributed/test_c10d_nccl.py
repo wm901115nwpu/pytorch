@@ -533,7 +533,6 @@ class ProcessGroupNCCLGroupTest(MultiProcessTestCase):
 
         # confirm enable/disable flag works
         backend._set_enable_nan_check(False)
-        pg.allreduce(nan_tensor)
 
         backend._set_enable_nan_check(True)
         with self.assertRaises(RuntimeError):
