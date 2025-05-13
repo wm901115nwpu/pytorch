@@ -55,6 +55,16 @@ from torch.testing._internal.inductor_utils import (
     HAS_GPU,
 )
 
+try:
+    try:
+        from .test_select_algorithm import make_remote_benchmark_fn
+    except ImportError:
+        from test_select_algorithm import make_remote_benchmark_fn # @manual
+except unittest.SkipTest:
+    if __name__ == "__main__":
+        sys.exit(0)
+    raise
+
 
 torch.set_float32_matmul_precision("high")
 if HAS_CUDA:
@@ -887,6 +897,26 @@ class TestMaxAutotune(TestCase):
             actual = (opt_f(x, y), x.grad, linear.weight.grad, linear.bias.grad)
             assert same(expect, actual, tol=1e-2), f"ref:\n{expect}\nact:\n{actual}"
 
+
+class TestMaxAutotuneRemote(TestMaxAutotune):
+    """
+    Duplicate all the TestMaxAutotune tests, but replace the make_benchmark_fn
+    with one that exercises the autotune_remote utilities, i.e., serialize a remote
+    request object, deserialize, and benchmark its choices.
+    """
+
+    def setUp(self):
+        super().setUp()
+
+        patcher = unittest.mock.patch(
+            "torch._inductor.select_algorithm.AlgorithmSelectorCache.make_benchmark_fn",
+            make_remote_benchmark_fn,
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+
+class TestMaxAutotuneSubgraph(TestCase):
     @skipIfXpu
     @unittest.skipIf(TEST_WITH_ROCM, "decompose_k not supported on ROCm")
     @unittest.skipIf(
