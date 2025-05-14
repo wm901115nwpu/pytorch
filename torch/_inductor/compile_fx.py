@@ -831,8 +831,9 @@ def _compile_fx_inner(
         start_time = time.time_ns()
 
         if use_cache:
+            shape_env = shape_env_from_inputs(example_inputs)
             (key_info, cache_info) = FxGraphCache.prepare_key(
-                gm, example_inputs, graph_kwargs, inputs_to_check, remote
+                gm, example_inputs, graph_kwargs, inputs_to_check, remote, shape_env
             )
 
             # Attempt a cache lookup
@@ -850,6 +851,7 @@ def _compile_fx_inner(
                     remote_cache,
                     is_backward=graph_kwargs.get("is_backward", False),
                     constants=constants,
+                    shape_env=shape_env,
                 )
             else:
                 log.debug("Failed to generate FX cache key")
@@ -907,6 +909,7 @@ def _compile_fx_inner(
                 example_inputs,
                 local,
                 remote_cache,
+                shape_env
             )
 
         # CACHE HIT: not much to really do, just make sure the cache key

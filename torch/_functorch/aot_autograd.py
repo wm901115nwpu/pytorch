@@ -1154,6 +1154,7 @@ def aot_module_simplified(
         ignore_shape_env=ignore_shape_env,
     )
     fake_mode, shape_env = construct_fake_mode(full_args, aot_config)
+    print(shape_env)
     fake_flat_args = process_inputs(
         full_args, aot_config, fake_mode, shape_env, ignore_shape_env
     )
@@ -1179,6 +1180,7 @@ def aot_module_simplified(
             compiled_fn = AOTAutogradCache.load(
                 dispatch_and_compile,
                 mod,
+                shape_env,
                 fake_flat_args,
                 aot_config,
                 cudagraphs,
