@@ -101,6 +101,51 @@ def check_inplace_broadcast(self_shape, *args_shape):
     )
 
 
+def _construct_strides(
+    sizes: Sequence[int],
+    fill_order: Sequence[int],
+) -> list[int]:
+    """From a list of sizes and a fill order, construct the strides of the permuted tensor."""
+    # Initialize strides
+    assert len(sizes) == len(fill_order), (
+        "Length of sizes must match the length of the fill order"
+    )
+    strides = [0] * len(sizes)
+
+    # Start with stride 1 for the innermost dimension
+    current_stride = 1
+
+    # Iterate through the fill order populating strides
+    for dim in fill_order:
+        strides[dim] = current_stride
+        current_stride *= sizes[dim]
+
+    return strides
+
+
+def _permute_strides(out: torch.Tensor, query_strides: tuple[int, ...]) -> torch.Tensor:
+    """
+    Create a new tensor with the same data and shape as the input,
+    but with strides permuted based on the input tensor's stride order.
+
+    Args:
+        out (torch.Tensor): The output tensor of attention.
+        query_strides (List[int]): The stride order of the input query tensor
+
+    Returns:
+        torch.Tensor: A new tensor with same shape and data as the input,
+        but with strides permuted based on the query tensor's stride order.
+    """
+    from torch._inductor.ir import get_fill_order
+
+    fill_order = get_fill_order(query_strides)
+    assert out.storage_offset() == 0, "Only support storage_offset == 0"
+    out_strides = _construct_strides(out.shape, fill_order)
+    new_out = out.new_empty(out.shape).as_strided(out.shape, out_strides)
+    new_out.copy_(out)
+    return new_out
+
+
 @register_meta([aten.linspace, aten.logspace])
 @out_wrapper()
 def meta_linspace_logspace(
@@ -5879,7 +5924,9 @@ def meta__scaled_dot_product_efficient_attention(
     num_heads = query.size(-2)
     Kv = value.size(-1)
 
-    res = torch.empty(B, M, num_heads, Kv, dtype=query.dtype, device=query.device)
+    out_shape = (B, M, num_heads, Kv)
+    res = query.new_empty(out_shape)
+    res = _permute_strides(res, query.stride())
 
     if torch.version.hip and torch.cuda.is_available():
         """Please see: https://github.com/pytorch/pytorch/issues/146848
@@ -5924,32 +5971,10 @@ def meta__scaled_dot_product_efficient_backward(
     is_causal: bool = False,
     scale: Optional[float] = None,
 ):
-    batch_size = query.size(0)
-    num_heads = query.size(1)
-    max_q = query.size(2)
-    head_dim = query.size(3)
-    head_dim_v = value.size(3)
+    grad_q = torch.empty_like(query)
+    grad_k = torch.empty_like(key)
+    grad_v = torch.empty_like(value)
 
-    max_k = key.size(2)
-
-    grad_q = torch.empty_permuted(
-        (batch_size, num_heads, max_q, head_dim),
-        (0, 2, 1, 3),
-        dtype=query.dtype,
-        device=query.device,
-    )
-    grad_k = torch.empty_permuted(
-        (batch_size, num_heads, max_k, head_dim),
-        (0, 2, 1, 3),
-        dtype=key.dtype,
-        device=key.device,
-    )
-    grad_v = torch.empty_permuted(
-        (batch_size, num_heads, max_k, head_dim_v),
-        (0, 2, 1, 3),
-        dtype=value.dtype,
-        device=value.device,
-    )
     grad_bias = None
     if attn_bias is not None and grad_input_mask[3]:
         lastDim = attn_bias.size(-1)
@@ -6132,7 +6157,9 @@ def meta__efficient_attention_forward(
     num_heads = query.size(-2)
     Kv = value.size(-1)
 
-    res = torch.empty(B, M, num_heads, Kv, dtype=query.dtype, device=query.device)
+    out_shape = (B, M, num_heads, Kv)
+    res = query.new_empty(out_shape)
+    res = _permute_strides(res, query.stride())
 
     logsumexp_batch_dim = cu_seqlens_q.size(0) - 1 if (cu_seqlens_q is not None) else B
     actual_max_seqlen_q = M
