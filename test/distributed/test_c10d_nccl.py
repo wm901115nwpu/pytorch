@@ -1023,6 +1023,7 @@ class ProcessGroupNCCLGroupTest(MultiProcessTestCase):
 
     @requires_nccl_version((2, 18), "Need NCCL 2.18+ for ncclCommSplit")
     @skip_but_pass_in_sandcastle_if(not TEST_MULTIGPU, "NCCL test requires 2+ GPUs")
+    @requires_nccl_version((2, 27), "https://github.com/pytorch/pytorch/issues/153517")
     def test_non_blocking_init(self):
         # Test creating a pg using nonblocking mode but not eagerly
         os.environ["TORCH_NCCL_USE_COMM_NONBLOCKING"] = "1"
@@ -3675,6 +3676,9 @@ class NcclProcessGroupWithDispatchedCollectivesTests(
     @skip_if_lt_x_gpu(1)
     @parametrize("float8_dtype", [torch.float8_e4m3fn, torch.float8_e5m2])
     def test_allgather_float8(self, float8_dtype):
+        device = torch.device(f"cuda:{self.rank:d}")
+        if not sm_is_or_higher_than(device, 9, 0):
+            self.skipTest("FP8 reduction support begins with sm90 capable devices")
         store = dist.FileStore(self.file_name, self.world_size)
         dist.init_process_group(
             "nccl",
