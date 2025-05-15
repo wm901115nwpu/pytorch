@@ -1,12 +1,13 @@
 import argparse
 import os
+import stat
 import subprocess
 import sys
 import zipfile
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
-import stat
+
 import requests
 
 
@@ -93,14 +94,15 @@ def find_old_whl(workflow_id: str, build_environment: str) -> bool:
             continue
     return False
 
+
 def is_executable(zip_info: zipfile.ZipInfo) -> bool:
     # Extract UNIX file mode from external_attr
     mode = (zip_info.external_attr >> 16) & 0xFFFF
     return bool(mode & stat.S_IXUSR)
 
+
 def unzip_artifact_and_replace_files() -> None:
     # Unzip the artifact and replace files
-    exectuables = []
     subprocess.check_output(
         ["unzip", "-o", "artifacts.zip", "-d", "artifacts"],
     )
@@ -124,7 +126,12 @@ def unzip_artifact_and_replace_files() -> None:
 
         # Zip the wheel back
         subprocess.check_output(
-            ["zip", "-r", f"artifacts/dist/{new_path.stem}.zip", f"artifacts/dist/{new_path.stem}"],
+            [
+                "zip",
+                "-r",
+                f"artifacts/dist/{new_path.stem}.zip",
+                f"artifacts/dist/{new_path.stem}",
+            ],
         )
 
         # Reame back to whl
@@ -136,9 +143,7 @@ def unzip_artifact_and_replace_files() -> None:
         )
 
     # Rezip the artifact
-    subprocess.check_output(
-        ["zip", "-r", "artifacts.zip", "."], cwd="artifacts"
-    )
+    subprocess.check_output(["zip", "-r", "artifacts.zip", "."], cwd="artifacts")
     subprocess.check_output(
         ["mv", "artifacts/artifacts.zip", "."],
     )
