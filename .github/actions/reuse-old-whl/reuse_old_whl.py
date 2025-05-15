@@ -1,9 +1,9 @@
 import argparse
 import os
 import subprocess
+import sys
 from functools import lru_cache
 from pathlib import Path
-import sys
 from typing import Any
 
 import requests
@@ -13,7 +13,7 @@ FORCE_REBUILD_LABEL = "ci-force-rebuild"
 
 
 @lru_cache
-def get_merge_base() -> str:
+def get_merge_base(branch: str) -> str:
     merge_base = subprocess.check_output(
         ["git", "merge-base", "HEAD", "origin/main"],
         text=True,
@@ -30,11 +30,6 @@ def get_head_sha() -> str:
         stderr=subprocess.DEVNULL,
     ).strip()
     return sha
-
-def can_use_whl_from(sha: str) -> bool:
-    # Check if the sha is in the list of allowed shas to reuse the old whl
-    # This is a placeholder function, you can implement your own logic here
-    return not is_main_branch() and check_changed_files(sha) and not check_labels_for_pr()
 
 
 def query_github_api(url: str) -> Any:
@@ -65,6 +60,7 @@ def is_main_branch() -> bool:
         f"Checking if we are on main branch: merge base {get_merge_base()}, head {get_head_sha()}"
     )
     return get_merge_base() == get_head_sha()
+
 
 @lru_cache
 def check_labels_for_pr() -> bool:
@@ -201,16 +197,31 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--build-environment", type=str, required=True, help="Build environment"
     )
+    parser.add_argument(
+        "--github-ref",
+        type=str,
+    )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
-    can_use_old_whl = can_use_whl_from(get_merge_base())
+    if is_main_branch() or (
+        args.github_ref and args.github_ref.startswith("refs/heads/release")
+    ):
+        print("On main branch or release branch, rebuild whl")
+        sys.exit(0)
+    if check_labels_for_pr():
+        print(f"Found {FORCE_REBUILD_LABEL} label on PR, rebuild whl")
+        sys.exit(0)
+
+    can_use_old_whl = check_changed_files(get_merge_base())
+
+    # TODO: go backwards from merge base to find more runs
     # if not can_use_old_whl:
     #     print(f"Cannot use old whl, because we are on main branch or changed files.")
     #     set_build_output()
-    # TODO: go backwards from merge base to find more runs
+
     if not find_old_whl(args.workflow_id, args.build_environment, get_merge_base()):
         print("No old whl found.")
         sys.exit(0)
