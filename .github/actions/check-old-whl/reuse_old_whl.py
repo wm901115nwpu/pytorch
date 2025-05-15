@@ -68,9 +68,10 @@ def find_old_whl(workflow_id: str, build_environment: str) -> bool:
         print("BUILD_ENVIRONMENT is not set.")
         return False
     merge_base = get_merge_base()
+    print(f"Merge base: {merge_base}, workflow_id: {workflow_id}")
 
     workflow_runs = query_github_api(
-        f"https://api.github.com/repos/pytorch/pytorch/actions/workflows/{workflow_id}/runs?head_sha={merge_base}&branch=main&status=completed&per_page=100"
+        f"https://api.github.com/repos/pytorch/pytorch/actions/workflows/{workflow_id}/runs?head_sha={merge_base}&branch=main&per_page=100"
     )
     if workflow_runs.get("total_count", 0) == 0:
         print("No workflow runs found.")
