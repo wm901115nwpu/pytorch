@@ -143,11 +143,9 @@ def unzip_artifact_and_replace_files() -> None:
 
     # Rename wheel into zip
     wheel_path = Path("artifacts/dist").glob("*.whl")
-    print(wheel_path)
     for path in wheel_path:
         new_path = path.with_suffix(".zip")
         os.rename(path, new_path)
-        print(f"Renamed {path} to {new_path}")
         # Unzip the wheel
         subprocess.check_output(
             ["unzip", "-o", new_path, "-d", f"artifacts/dist/{new_path.stem}"],
