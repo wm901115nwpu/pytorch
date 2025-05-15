@@ -75,6 +75,15 @@ on:
         required: false
         type: string
 
+      allow-reuse-old-whl:
+        description: |
+          If set, the build will be skipped if a wheel is already available
+          for the current commit. This is useful for PRs that are not
+          expected to change the wheel.
+        required: false
+        type: boolean
+        default: false
+
     secrets:
       HUGGING_FACE_HUB_TOKEN:
         required: false
@@ -134,7 +143,8 @@ jobs:
 
       - name: Check if can use old whl build
         id: use-old-whl
-        uses: ./.github/actions/check-old-whl
+        uses: ./.github/actions/reuse-old-whl
+        if: inputs.allow-reuse-old-whl
         with:
           build-environment: ${{ inputs.build-environment }}
           workflow-id: pull.yml
@@ -149,7 +159,7 @@ jobs:
 
       - name: Use following to pull public copy of the image
         id: print-ghcr-mirror
-        if: inputs.build-environment != 'linux-s390x-binary-manywheel' && steps.use-old-whl.outputs.build == 'true'
+        if: inputs.build-environment != 'linux-s390x-binary-manywheel' && steps.use-old-whl.outputs.reuse != 'true'
         env:
           ECR_DOCKER_IMAGE: ${{ steps.calculate-docker-image.outputs.docker-image }}
         shell: bash
@@ -159,7 +169,7 @@ jobs:
 
       - name: Pull docker image
         uses: pytorch/test-infra/.github/actions/pull-docker-image@main
-        if: inputs.build-environment != 'linux-s390x-binary-manywheel' && steps.use-old-whl.outputs.build == 'true'
+        if: inputs.build-environment != 'linux-s390x-binary-manywheel' && steps.use-old-whl.outputs.reuse != 'true'
         with:
           docker-image: ${{ steps.calculate-docker-image.outputs.docker-image }}
 
@@ -187,14 +197,14 @@ jobs:
       - name: Download pytest cache
         uses: ./.github/actions/pytest-cache-download
         continue-on-error: true
-        if: inputs.build-environment != 'linux-s390x-binary-manywheel' && steps.use-old-whl.outputs.build == 'true'
+        if: inputs.build-environment != 'linux-s390x-binary-manywheel' && steps.use-old-whl.outputs.reuse != 'true'
         with:
           cache_dir: .pytest_cache
           job_identifier: ${{ github.workflow }}_${{ inputs.build-environment }}
           s3_bucket: ${{ inputs.s3-bucket }}
 
       - name: Build
-        if: (steps.filter.outputs.is-test-matrix-empty == 'False' || inputs.test-matrix == '') && steps.use-old-whl.outputs.build == 'true'
+        if: (steps.filter.outputs.is-test-matrix-empty == 'False' || inputs.test-matrix == '') && steps.use-old-whl.outputs.reuse != 'true'
         id: build
         env:
           BUILD_ENVIRONMENT: ${{ inputs.build-environment }}
@@ -289,7 +299,7 @@ jobs:
           echo "build_time=$((END_TIME - START_TIME))" >> "$GITHUB_OUTPUT"
 
       - name: Archive artifacts into zip
-        if: inputs.build-generates-artifacts && steps.build.outcome != 'skipped' && steps.use-old-whl.outputs.build == 'true'
+        if: inputs.build-generates-artifacts && steps.build.outcome != 'skipped' && steps.use-old-whl.outputs.reuse != 'true'
         run: |
           zip -1 -r artifacts.zip dist/ build/custom_test_artifacts build/lib build/bin .additional_ci_files
 
@@ -313,7 +323,7 @@ jobs:
           path: artifacts.zip
 
       - name: Upload sccache stats
-        if: steps.build.outcome != 'skipped' && inputs.build-environment != 'linux-s390x-binary-manywheel' && steps.use-old-whl.outputs.build == 'true'
+        if: steps.build.outcome != 'skipped' && inputs.build-environment != 'linux-s390x-binary-manywheel' && steps.use-old-whl.outputs.reuse != 'true'
         uses: ./.github/actions/upload-sccache-stats
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}

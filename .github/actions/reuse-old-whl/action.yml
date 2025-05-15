@@ -15,7 +15,7 @@ inputs:
     required: true
 
 outputs:
-  build:
+  reuse:
     description: Whether the wheel is reused or not
     value: ${{ steps.check-file-changes.outputs.build }}
 
