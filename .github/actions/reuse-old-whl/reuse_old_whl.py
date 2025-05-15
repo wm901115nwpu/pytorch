@@ -31,6 +31,11 @@ def get_head_sha() -> str:
     ).strip()
     return sha
 
+def can_use_whl_from(sha: str) -> bool:
+    # Check if the sha is in the list of allowed shas to reuse the old whl
+    # This is a placeholder function, you can implement your own logic here
+    return not is_main_branch() and check_changed_files(sha) and not check_labels_for_pr()
+
 
 def query_github_api(url: str) -> Any:
     headers = {
@@ -61,7 +66,7 @@ def is_main_branch() -> bool:
     )
     return get_merge_base() == get_head_sha()
 
-
+@lru_cache
 def check_labels_for_pr() -> bool:
     # Check if the current commit is part of a PR and if it has the
     # FORCE_REBUILD_LABEL
@@ -78,39 +83,37 @@ def check_labels_for_pr() -> bool:
     return False
 
 
-def check_changed_files() -> bool:
+def check_changed_files(sha: str) -> bool:
     # Return true if all the changed files are in the list of allowed files to
     # be changed to reuse the old whl
-    merge_base = get_merge_base()
     changed_files = (
         subprocess.check_output(
-            ["git", "diff", "--name-only", merge_base, "HEAD"],
+            ["git", "diff", "--name-only", sha, "HEAD"],
             text=True,
             stderr=subprocess.DEVNULL,
         )
         .strip()
         .split()
     )
-
+    print(f"Checking changed files between {sha} and HEAD:")
     for file in changed_files:
         if not ok_changed_file(file):
-            print(f"File {file} is not allowed to be changed.")
+            print(f"  File {file} is not allowed to be changed.")
             return False
         else:
-            print(f"File {file} is allowed to be changed.")
+            print(f"  File {file} is allowed to be changed.")
     return True
 
 
-def find_old_whl(workflow_id: str, build_environment: str) -> bool:
+def find_old_whl(workflow_id: str, build_environment: str, sha: str) -> bool:
     # Find the old whl on s3 and download it to artifacts.zip
     if build_environment is None:
         print("BUILD_ENVIRONMENT is not set.")
         return False
-    merge_base = get_merge_base()
-    print(f"Merge base: {merge_base}, workflow_id: {workflow_id}")
+    print(f"SHA: {sha}, workflow_id: {workflow_id}")
 
     workflow_runs = query_github_api(
-        f"https://api.github.com/repos/pytorch/pytorch/actions/workflows/{workflow_id}/runs?head_sha={merge_base}&branch=main&per_page=100"
+        f"https://api.github.com/repos/pytorch/pytorch/actions/workflows/{workflow_id}/runs?head_sha={sha}&branch=main&per_page=100"
     )
     if workflow_runs.get("total_count", 0) == 0:
         print("No workflow runs found.")
@@ -203,13 +206,12 @@ def parse_args() -> argparse.Namespace:
 
 if __name__ == "__main__":
     args = parse_args()
-    can_use_old_whl = (
-        not is_main_branch() and check_changed_files() and not check_labels_for_pr()
-    )
+    can_use_old_whl = can_use_whl_from(get_merge_base())
     # if not can_use_old_whl:
     #     print(f"Cannot use old whl, because we are on main branch or changed files.")
     #     set_build_output()
-    if not find_old_whl(args.workflow_id, args.build_environment):
+    # TODO: go backwards from merge base to find more runs
+    if not find_old_whl(args.workflow_id, args.build_environment, get_merge_base()):
         print("No old whl found.")
         sys.exit(0)
     unzip_artifact_and_replace_files()
