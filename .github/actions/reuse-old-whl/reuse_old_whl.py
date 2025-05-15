@@ -13,7 +13,7 @@ FORCE_REBUILD_LABEL = "ci-force-rebuild"
 
 
 @lru_cache
-def get_merge_base(branch: str) -> str:
+def get_merge_base() -> str:
     merge_base = subprocess.check_output(
         ["git", "merge-base", "HEAD", "origin/main"],
         text=True,
