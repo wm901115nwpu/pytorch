@@ -167,6 +167,7 @@ struct NodeCall {
   std::vector<std::pair<int, int>> cpp_tensor_pre_hooks;
   std::vector<int> pre_hooks;
   std::vector<int> post_hooks;
+  std::optional<int> cpp_reducer_post_hook;
   std::vector<int> post_acc_grad_hooks;
   std::vector<std::pair<int, int>> graph_output;
   bool needed = true;
@@ -334,6 +335,10 @@ struct AutogradCompilerCall {
     return hooks.size() - 1;
   }
 
+  size_t next_hook_id() {
+    return hooks.size();
+  }
+
   size_t emplace_cpp_tensor_pre_hook(
       std::function<at::TensorBase(const at::TensorBase&)>&& fn) {
     cpp_tensor_pre_hooks.emplace_back(std::move(fn));
@@ -360,13 +365,16 @@ struct AutogradCompilerCall {
   std::vector<c10::SafePyObject> packed_inputs;
   NodeCalls node_calls;
   SizeInput::DynType default_dyn_type;
-  // NodeCall id of each size, only when verbose logging is enabled
-  std::vector<uint32_t> size_input_origins;
   std::unordered_map<const SavedVariable*, std::pair<size_t, size_t>>
       sv_to_hooks;
   // pynode -> backward and backward state idx
   std::unordered_map<const Node*, std::pair<size_t, std::optional<size_t>>>
       pynode_objs;
+
+  // NodeCall id of each size, only when verbose logging is enabled
+  std::vector<uint32_t> size_input_origins;
+  // param ready order, only when DDP C++ Reducer is enabled
+  std::vector<size_t> ddp_param_index_order;
 };
 
 class CompiledNodeArgs {
@@ -377,6 +385,9 @@ class CompiledNodeArgs {
   // than specialized on) are forwarded to the compiler and not included in the
   // key.
  public:
+  const std::vector<size_t>& retrieve_ddp_param_index_order() const {
+    return _compiler.ddp_param_index_order;
+  }
   void collect(const TensorArg& t) {
     collect_size(t.id);
     if (t.defined()) {
@@ -391,6 +402,10 @@ class CompiledNodeArgs {
 
   void collect(const at::Tensor& t) {
     collect(_compiler.tensor_args.add(t));
+  }
+  void assert_collected(const at::Tensor& t) {
+    // Will raise if can't find
+    _compiler.tensor_args.lookup(t);
   }
   void collect(const SavedVariable& sv, bool is_output) {
     if (auto hook_data = sv.retrieve_unpack_hook_data();
@@ -584,6 +599,10 @@ class CompiledNodeArgs {
     collect(t.requires_grad);
     collect(t.is_empty);
   }
+  void collect_ddp_param_index(size_t variable_index) {
+    collect(variable_index);
+    _compiler.ddp_param_index_order.emplace_back(variable_index);
+  }
   bool cond(bool cond) {
     collect(cond);
     return cond;
@@ -776,6 +795,7 @@ struct TraceState {
   size_t sym_sizes_index{0};
   std::vector<std::optional<c10::SymInt>> sym_sizes;
   variable_list outputs;
+  variable_list ddp_bucket;
 };
 
 class SwapSavedVariables {
@@ -788,6 +808,10 @@ class SwapSavedVariables {
     auto it = compiler.pynode_objs.find(pynode);
     TORCH_INTERNAL_ASSERT(it != compiler.pynode_objs.end());
     return it->second;
+  }
+
+  const std::vector<size_t>& retrieve_ddp_param_index_order() const {
+    return compiler.ddp_param_index_order;
   }
 
   void before(at::Tensor& t) {
