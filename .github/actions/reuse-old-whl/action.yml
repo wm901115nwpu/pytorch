@@ -31,6 +31,6 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github-token }}
       run: |
         set -x
-        python3 .github/actions/check-old-whl/reuse_old_whl.py \
+        python3 .github/actions/reuse-old-whl/reuse_old_whl.py \
           --build-environment "${{ inputs.build-environment }}" \
           --workflow-id "${{ inputs.workflow-id }}"
