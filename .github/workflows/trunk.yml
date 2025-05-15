@@ -99,7 +99,7 @@ jobs:
       runner_prefix: "${{ needs.get-label-type.outputs.label-type }}"
       build-environment: linux-focal-cuda12.6-py3.10-gcc11-sm89
       docker-image-name: ci-image:pytorch-linux-focal-cuda12.6-cudnn9-py3-gcc11
-      allow-reuse-old-w: true
+      allow-reuse-old-whl: true
       cuda-arch-list: 8.9
       test-matrix: |
         { include: [
