@@ -7,8 +7,8 @@ inputs:
   build-environment:
     description: Build environment
     required: true
-  workflow-id:
-    description: Workflow ID
+  run-id:
+    description: Workflow run ID
     required: true
   github-token:
     description: GitHub token
@@ -33,4 +33,4 @@ runs:
         set -x
         python3 .github/actions/reuse-old-whl/reuse_old_whl.py \
           --build-environment "${{ inputs.build-environment }}" \
-          --workflow-id "${{ inputs.workflow-id }}"
+          --run-id "${{ inputs.run-id }}"

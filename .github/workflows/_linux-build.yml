@@ -147,7 +147,7 @@ jobs:
         if: inputs.allow-reuse-old-whl
         with:
           build-environment: ${{ inputs.build-environment }}
-          workflow-id: pull.yml
+          run-id: ${{ github.run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Calculate docker image
@@ -305,7 +305,7 @@ jobs:
 
       - name: Store PyTorch Build Artifacts on S3
         uses: seemethere/upload-artifact-s3@baba72d0712b404f646cebe0730933554ebce96a # v5.1.0
-        if: inputs.build-generates-artifacts && (steps.build.outcome != 'skipped' || steps.use-old-whl.outputs.build != 'true') && inputs.build-environment != 'linux-s390x-binary-manywheel'
+        if: inputs.build-generates-artifacts && (steps.build.outcome != 'skipped' || steps.use-old-whl.outputs.reuse != 'true') && inputs.build-environment != 'linux-s390x-binary-manywheel'
         with:
           name: ${{ inputs.build-environment }}
           retention-days: 14
@@ -315,7 +315,7 @@ jobs:
 
       - name: Store PyTorch Build Artifacts for s390x
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        if: inputs.build-generates-artifacts && (steps.build.outcome != 'skipped' || steps.use-old-whl.outputs.build != 'true') && inputs.build-environment == 'linux-s390x-binary-manywheel'
+        if: inputs.build-generates-artifacts && (steps.build.outcome != 'skipped' || steps.use-old-whl.outputs.reuse != 'true') && inputs.build-environment == 'linux-s390x-binary-manywheel'
         with:
           name: ${{ inputs.build-environment }}
           retention-days: 14

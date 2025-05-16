@@ -4,7 +4,7 @@ import subprocess
 import sys
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, cast, Optional
 
 import requests
 
@@ -32,6 +32,13 @@ def get_head_sha() -> str:
     return sha
 
 
+def is_main_branch() -> bool:
+    print(
+        f"Checking if we are on main branch: merge base {get_merge_base()}, head {get_head_sha()}"
+    )
+    return get_merge_base() == get_head_sha()
+
+
 def query_github_api(url: str) -> Any:
     headers = {
         "Accept": "application/vnd.github.v3+json",
@@ -39,27 +46,6 @@ def query_github_api(url: str) -> Any:
     }
     response = requests.get(url, headers=headers)
     return response.json()
-
-
-def ok_changed_file(file: str) -> bool:
-    # Return true if the file is in the list of allowed files to be changed to
-    # reuse the old whl
-    if (
-        file.startswith("torch/")
-        and file.endswith(".py")
-        and not file.startswith("torch/csrc/")
-    ):
-        return True
-    if file.startswith("test/") and file.endswith(".py"):
-        return True
-    return False
-
-
-def is_main_branch() -> bool:
-    print(
-        f"Checking if we are on main branch: merge base {get_merge_base()}, head {get_head_sha()}"
-    )
-    return get_merge_base() == get_head_sha()
 
 
 @lru_cache
@@ -76,6 +62,32 @@ def check_labels_for_pr() -> bool:
             if label["name"] == FORCE_REBUILD_LABEL:
                 print(f"Found label {FORCE_REBUILD_LABEL} in PR {pr['number']}.")
                 return True
+    return False
+
+
+def get_workflow_id(run_id: str) -> Optional[str]:
+    # Get the workflow ID that corresponds to the file for the run ID
+    url = f"https://api.github.com/repos/pytorch/pytorch/actions/runs/{run_id}"
+    response = query_github_api(url)
+    if "workflow_id" in response:
+        print(f"Found workflow ID for run ID {run_id}: {response['workflow_id']}")
+        return cast(str, response["workflow_id"])
+    else:
+        print("No workflow ID found.")
+        return None
+
+
+def ok_changed_file(file: str) -> bool:
+    # Return true if the file is in the list of allowed files to be changed to
+    # reuse the old whl
+    if (
+        file.startswith("torch/")
+        and file.endswith(".py")
+        and not file.startswith("torch/csrc/")
+    ):
+        return True
+    if file.startswith("test/") and file.endswith(".py"):
+        return True
     return False
 
 
@@ -191,7 +203,7 @@ def set_output() -> None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Check for old whl files.")
-    parser.add_argument("--workflow-id", type=str, required=True, help="Workflow ID")
+    parser.add_argument("--run-id", type=str, required=True, help="Workflow ID")
     parser.add_argument(
         "--build-environment", type=str, required=True, help="Build environment"
     )
@@ -219,7 +231,12 @@ if __name__ == "__main__":
     #     print(f"Cannot use old whl, because we are on main branch or changed files.")
     #     sys.exit(0)
 
-    if not find_old_whl(args.workflow_id, args.build_environment, get_merge_base()):
+    workflow_id = get_workflow_id(args.run_id)
+    if workflow_id is None:
+        print("No workflow ID found.")
+        sys.exit(0)
+
+    if not find_old_whl(workflow_id, args.build_environment, get_merge_base()):
         print("No old whl found.")
         # TODO: go backwards from merge base to find more runs
         sys.exit(0)
