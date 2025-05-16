@@ -481,7 +481,8 @@ class ProcessGroupNCCLGroupTest(MultiProcessTestCase):
 
     @requires_nccl()
     @skip_but_pass_in_sandcastle_if(
-        not (TEST_MULTIGPU and CUDA_12_AND_ABOVE),
+        # skip for cu126 as well due to https://github.com/pytorch/pytorch/issues/153479
+        not (TEST_MULTIGPU and CUDA_12_AND_ABOVE and False),
         "NCCL test requires 2+ GPUs and Device side assert could cause unexpected errors in lower versions of CUDA",
     )
     @parametrize(
@@ -533,6 +534,7 @@ class ProcessGroupNCCLGroupTest(MultiProcessTestCase):
 
         # confirm enable/disable flag works
         backend._set_enable_nan_check(False)
+        pg.allreduce(nan_tensor)
 
         backend._set_enable_nan_check(True)
         with self.assertRaises(RuntimeError):
@@ -656,6 +658,8 @@ class ProcessGroupNCCLGroupTest(MultiProcessTestCase):
             # fail because one context takes about 1 GB -- much more than the
             # tensor size created in this test.
             self.assertTrue(
+                # Bump the heuristic from 1.5 to 1.7 due to
+                # https://github.com/pytorch/pytorch/issues/153122
                 used_after < used_before * 1.7,
                 f"{device} used {used_after} bytes after collective, "
                 f"70% more than the status before ({used_before} bytes). "
@@ -1045,10 +1049,10 @@ class ProcessGroupNCCLGroupTest(MultiProcessTestCase):
 
     @requires_nccl_version((2, 18), "Need NCCL 2.18+ for ncclCommSplit")
     @skip_but_pass_in_sandcastle_if(not TEST_MULTIGPU, "NCCL test requires 2+ GPUs")
-    @requires_nccl_version((2, 27), "https://github.com/pytorch/pytorch/issues/153517")
     def test_non_blocking_with_eager_init(self):
         # Test creating a pg eagerly with nonblocking mode when
         # we've passed a specific device_id to init_process_group.
+        raise SkipTest("Skip due to https://github.com/pytorch/pytorch/issues/153517")
         os.environ["TORCH_NCCL_USE_COMM_NONBLOCKING"] = "1"
         os.environ["TORCH_NCCL_NONBLOCKING_TIMEOUT"] = "100"
         store = c10d.FileStore(self.file_name, self.world_size)
