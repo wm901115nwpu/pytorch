@@ -31,6 +31,6 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github-token }}
       run: |
         set -x
-        python3 .github/actions/reuse-old-whl/reuse_old_whl.py \
+        python3 ${GITHUB_ACTION_PATH}/check_file_changes.py \
           --build-environment "${{ inputs.build-environment }}" \
           --run-id "${{ inputs.run-id }}"

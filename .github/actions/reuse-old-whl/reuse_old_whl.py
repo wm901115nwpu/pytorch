@@ -65,6 +65,19 @@ def check_labels_for_pr() -> bool:
     return False
 
 
+def check_issue_open() -> bool:
+    # Check if issue #153759 is open.  This is the config issue for quickly
+    # forcing everyone to build
+    url = "https://api.github.com/repos/pytorch/pytorch/issues/153759"
+    response = query_github_api(url)
+    if response.get("state") == "open":
+        print("Issue #153759 is open.")
+        return True
+    else:
+        print("Issue #153759 is not open.")
+        return False
+
+
 def get_workflow_id(run_id: str) -> Optional[str]:
     # Get the workflow ID that corresponds to the file for the run ID
     url = f"https://api.github.com/repos/pytorch/pytorch/actions/runs/{run_id}"
@@ -216,13 +229,19 @@ def parse_args() -> argparse.Namespace:
 
 if __name__ == "__main__":
     args = parse_args()
+
     if is_main_branch() or (
         args.github_ref and args.github_ref.startswith("refs/heads/release")
     ):
         print("On main branch or release branch, rebuild whl")
         sys.exit(0)
+
     if check_labels_for_pr():
         print(f"Found {FORCE_REBUILD_LABEL} label on PR, rebuild whl")
+        sys.exit(0)
+
+    if check_issue_open():
+        print("Issue #153759 is open, rebuild whl")
         sys.exit(0)
 
     can_use_old_whl = check_changed_files(get_merge_base())
