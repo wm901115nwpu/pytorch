@@ -188,13 +188,18 @@ def unzip_artifact_and_replace_files() -> None:
             [
                 "zip",
                 "-r",
-                f"artifacts/dist/{new_path.stem}.zip",
-                f"artifacts/dist/{new_path.stem}",
+                f"{new_path.stem}.zip",
+                "."
+            ],
+            cwd=f"artifacts/dist/{new_path.stem}",
+        )
+        subprocess.check_output(
+            [
+                "mv",
+                f"artifacts/dist/{new_path.stem}/{new_path.stem}.zip",
+                f"artifacts/dist/{new_path.stem}.whl",
             ],
         )
-
-        # Reame back to whl
-        os.rename(new_path, path)
 
         # Remove the extracted folder
         subprocess.check_output(
