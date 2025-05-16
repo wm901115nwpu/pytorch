@@ -211,12 +211,12 @@ def unzip_artifact_and_replace_files() -> None:
 
 def set_output() -> None:
     # Disable for now so we can monitor first
-    pass
-    # if os.getenv("GITHUB_OUTPUT"):
-    #     with open(str(os.getenv("GITHUB_OUTPUT")), "a") as env:
-    #         print("reuse=true", file=env)
-    # else:
-    #     print("::set-output name=reuse::true")
+    # pass
+    if os.getenv("GITHUB_OUTPUT"):
+        with open(str(os.getenv("GITHUB_OUTPUT")), "a") as env:
+            print("reuse=true", file=env)
+    else:
+        print("::set-output name=reuse::true")
 
 
 def parse_args() -> argparse.Namespace:

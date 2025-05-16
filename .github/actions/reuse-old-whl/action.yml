@@ -33,4 +33,5 @@ runs:
         set -x
         python3 ${GITHUB_ACTION_PATH}/reuse_old_whl.py \
           --build-environment "${{ inputs.build-environment }}" \
-          --run-id "${{ inputs.run-id }}"
+          --run-id "${{ inputs.run-id }}" \
+          --github-ref "${{ github.ref }}"
