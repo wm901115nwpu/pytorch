@@ -218,6 +218,7 @@ class TestCheckpoint(TestCase):
                 )
 
     def test_checkpoint_module_list(self):
+        self.assertEqual(1, 2)
         class ModuleListNet(nn.Module):
             def __init__(self) -> None:
                 super().__init__()
