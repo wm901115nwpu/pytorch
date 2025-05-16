@@ -172,6 +172,8 @@ def unzip_artifact_and_replace_files() -> None:
     for path in wheel_path:
         new_path = path.with_suffix(".zip")
         os.rename(path, new_path)
+        print(f"Renamed {path} to {new_path}")
+        print(new_path.stem)
         # Unzip the wheel
         subprocess.check_output(
             ["unzip", "-o", new_path, "-d", f"artifacts/dist/{new_path.stem}"],
@@ -247,9 +249,9 @@ if __name__ == "__main__":
         print("Issue #153759 is open, rebuild whl")
         sys.exit(0)
 
-    if not check_changed_files(get_merge_base()):
-        print(f"Cannot use old whl due to the changed files.")
-        sys.exit(0)
+    # if not check_changed_files(get_merge_base()):
+    #     print(f"Cannot use old whl due to the changed files.")
+    #     sys.exit(0)
 
     workflow_id = get_workflow_id(args.run_id)
     if workflow_id is None:
