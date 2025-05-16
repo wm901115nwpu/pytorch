@@ -102,6 +102,7 @@ except ImportError:
     has_pytest = False
 
 
+syntaxerrorg
 MI300_ARCH = ("gfx942",)
 
 

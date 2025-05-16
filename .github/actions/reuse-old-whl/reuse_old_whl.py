@@ -55,7 +55,8 @@ def check_labels_for_pr() -> bool:
     head_sha = get_head_sha()
     url = f"https://api.github.com/repos/pytorch/pytorch/commits/{head_sha}/pulls"
     response = query_github_api(url)
-    print(f"Found {len(response)} PRs for commit {head_sha}")
+
+    print(f"Found {len(response)} PRs for commit {head_sha}: {[pr['number'] for pr in response]}")
     for pr in response:
         labels = pr.get("labels", [])
         for label in labels:
@@ -207,11 +208,13 @@ def unzip_artifact_and_replace_files() -> None:
 
 
 def set_output() -> None:
-    if os.getenv("GITHUB_OUTPUT"):
-        with open(str(os.getenv("GITHUB_OUTPUT")), "a") as env:
-            print("reuse=true", file=env)
-    else:
-        print("::set-output name=reuse::true")
+    # Disable for now so we can monitor first
+    pass
+    # if os.getenv("GITHUB_OUTPUT"):
+    #     with open(str(os.getenv("GITHUB_OUTPUT")), "a") as env:
+    #         print("reuse=true", file=env)
+    # else:
+    #     print("::set-output name=reuse::true")
 
 
 def parse_args() -> argparse.Namespace:
@@ -244,11 +247,9 @@ if __name__ == "__main__":
         print("Issue #153759 is open, rebuild whl")
         sys.exit(0)
 
-    can_use_old_whl = check_changed_files(get_merge_base())
-
-    # if not can_use_old_whl:
-    #     print(f"Cannot use old whl, because we are on main branch or changed files.")
-    #     sys.exit(0)
+    if not check_changed_files(get_merge_base()):
+        print(f"Cannot use old whl due to the changed files.")
+        sys.exit(0)
 
     workflow_id = get_workflow_id(args.run_id)
     if workflow_id is None:
