@@ -215,13 +215,14 @@ if __name__ == "__main__":
 
     can_use_old_whl = check_changed_files(get_merge_base())
 
-    # TODO: go backwards from merge base to find more runs
     # if not can_use_old_whl:
     #     print(f"Cannot use old whl, because we are on main branch or changed files.")
-    #     set_build_output()
+    #     sys.exit(0)
 
     if not find_old_whl(args.workflow_id, args.build_environment, get_merge_base()):
         print("No old whl found.")
+        # TODO: go backwards from merge base to find more runs
         sys.exit(0)
+
     unzip_artifact_and_replace_files()
     set_output()
